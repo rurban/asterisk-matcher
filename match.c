@@ -16,57 +16,57 @@
 #include <ctype.h>
 
 /* derived from code by Steffen Offermann 1991 (public domain)
-    http://www.cs.umu.se/~isak/Snippets/xstrcmp.c
+   http://www.cs.umu.se/~isak/Snippets/xstrcmp.c
 */
 int ast_extension_patmatch(const char *pattern, const char *data)
 {
-     printf(" >>> %s =~ /%s/\n", data, pattern);
-     switch (toupper(*pattern))
+    ast_log(LOG_DEBUG, " >>> %s =~ /%s/\n", data, pattern);
+    switch (toupper(*pattern))
 	{
 	case '\0':
-	    printf(" !>>> %s => %s\n", data, !*data ? "OK" : "FAIL");
+	    ast_log(LOG_DEBUG, " !>>> %s => %s\n", data, !*data ? "OK" : "FAIL");
 	    return !*data;
-	
+	    
 	case ' ':
 	case '-':
 	    /* Ignore these characters in the pattern */
 	    return *data && ast_extension_patmatch(pattern+1, data);
 
-	case '.' : /* wildcard */
+	case '.' : /* wildcard as '*' in glob(). Match any sequence of characters */
 	    if (! *(pattern+1) )
-		return *data;    /* abort earlier to speed it up */
+		return *data;
 	    else
 		return ast_extension_patmatch(pattern+1, data) ||
                   (*data && ast_extension_patmatch(pattern, data+1));
 
-/*	
+/* wildcard character: Match any char */
+#if 0
 	case '?' :
 	    return *data && ast_extension_patmatch(pattern+1, data+1);
-*/	
-	case 'X':
-	    return ((*data >= '0') && (*data <= '9')) && 
+#endif
+	case 'X': /* 0-9 */
+	    return ((*data >= '0') && (*data <= '9')) &&
               ast_extension_patmatch(pattern+1, data+1);
-	
-	case 'Z':
-	    return ((*data >= '1') && (*data <= '9')) && 
+
+	case 'Z': /* 1-9 */
+	    return ((*data >= '1') && (*data <= '9')) &&
               ast_extension_patmatch(pattern+1, data+1);
-	
-	case 'N':
-	    return ((*data >= '2') && (*data <= '9')) && 
+
+	case 'N': /* 2-9 */
+	    return ((*data >= '2') && (*data <= '9')) &&
               ast_extension_patmatch(pattern+1, data+1);
-	
-	case '[':
+
+	case '[': /* Character ranges: [0-9a-zA-Z]. Negation like [^0] not yet supported. */
 	    /* Begin Mark Spencer CODE */
 	    {
 		int i,border=0;
 		char *where;
-		int match=0;
 		pattern++;
 		where=strchr(pattern,']');
 		if (where)
 		    border=(int)(where-pattern);
 		if (!where || border > strlen(pattern)) {
-		    printf("Wrong [%s] pattern usage\n", pattern);
+		    ast_log(LOG_WARNING, "Wrong [%s] pattern usage\n", pattern);
 		    return 0;
 		}
 		for (i=0; i<border; i++) {
@@ -87,35 +87,36 @@ int ast_extension_patmatch(const char *pattern, const char *data)
 		break;
 	    }
 	    /* End Mark Spencer CODE */
-	
+	    
 	default  :
-	    return (toupper(*pattern) == toupper(*data)) && 
+	    return (toupper(*pattern) == toupper(*data)) &&
               ast_extension_patmatch(pattern+1, data+1);
 	}
+    return 0;
 }
-
+ 
+                
 #if 0
 int ast_extension_match(char *pattern, char *data)
 {
-	int match;
-	if (!*pattern) {
-	    ast_log(LOG_WARNING, "ast_extension_match: empty pattern\n");
-	    return 0;
-	}
-	if (!*data) {
-	    ast_log(LOG_WARNING, "ast_extension_match: empty data\n");
-	    return 0;
-	}
-	if (pattern[0] != '_') {
-	    match = (strcmp(pattern, data) == 0);
-	    ast_log(LOG_DEBUG, "ast_extension_match %s == /%s/", data, pattern);
-	    return (strcmp(pattern, data) == 0);
-	} else {
-	    ast_log(LOG_DEBUG, "ast_extension_match %s =~ /%s/", data, pattern);
-	    match = ast_extension_patmatch(data,pattern+1);
-	}
-	ast_log(LOG_DEBUG, " => %d\n", match);
-	return match;
+    int match;
+    if (!*pattern) {
+        ast_log(LOG_WARNING, "ast_extension_match: empty pattern\n");
+        return 0;
+    }
+    if (!*data) {
+        ast_log(LOG_WARNING, "ast_extension_match: empty data\n");
+        return 0;
+    }
+    if (pattern[0] != '_') {
+        match = (strcmp(pattern, data) == 0);
+        ast_log(LOG_DEBUG, "ast_extension_match %s == /%s/ => %d\n", data, pattern, match);
+    } else {
+        ast_log(LOG_DEBUG, "ast_extension_match %s =~ /%s/", data, pattern);
+        match = ast_extension_patmatch(pattern+1,data);
+        ast_log(LOG_DEBUG, " => %d\n", match);
+    }
+    return match;
 }
 #endif
 
