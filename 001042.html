@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Asterisk-Dev] better pattern matcher
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:asterisk-dev%40lists.digium.com?Subject=%5BAsterisk-Dev%5D%20better%20pattern%20matcher&In-Reply-To=3EE86DE0.2000902%40inode.at">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000868.html">
+   <LINK REL="Next"  HREF="000825.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Asterisk-Dev] better pattern matcher</H1>
+    <B>Reini Urban</B> 
+    <A HREF="mailto:asterisk-dev%40lists.digium.com?Subject=%5BAsterisk-Dev%5D%20better%20pattern%20matcher&In-Reply-To=3EE86DE0.2000902%40inode.at"
+       TITLE="[Asterisk-Dev] better pattern matcher">r.urban at inode.at
+       </A><BR>
+    <I>Mon Jun 30 06:47:00 MST 2003</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000868.html">[Asterisk-Dev] better pattern matcher
+</A></li>
+        <LI>Next message: <A HREF="000825.html">[Asterisk-Dev] better pattern matcher
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1042">[ date ]</a>
+              <a href="thread.html#1042">[ thread ]</a>
+              <a href="subject.html#1042">[ subject ]</a>
+              <a href="author.html#1042">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>attached is my latest matcher.
+
+fixed a bug in the quantifiers and added support for alternations.
+it's not yet solid-proof, but should work for most patterns.
+
+see the tests at the end.
+
+
+Reini Urban wrote:
+&gt;<i> old matcher:
+</I>&gt;<i> * a regex must start with &quot;_&quot;
+</I>&gt;<i> * regex patterns are case-insensitive except characters inside []
+</I>&gt;<i> * &quot;.&quot; matches zero or more characters (as in * in glob)
+</I>&gt;<i> * character ranges as in [0-9a-zA-Z]
+</I>&gt;<i> * X,Z,N match 0-9,1-9,2-9 resp.
+</I>&gt;<i> 
+</I>&gt;<i> plus the new one with additional features:
+</I>&gt;<i> * &quot;?&quot; matches any character
+</I>&gt;<i> * negation as in [^0] (&quot;any char but 0&quot;)
+</I>&gt;<i>               or [^a-z]
+</I>&gt;<i> * explicit quantifiers as in X{2,4} (&quot;from 2 to 4 digits&quot;),
+</I>&gt;<i>                           or X{2,}  (&quot;at least 2 digits&quot;),
+</I>&gt;<i>                           or X{2}   (&quot;exactly 2 digits&quot;),
+</I>&gt;<i> * regex-style quantifiers like ?, + and * are supported
+</I>&gt;<i>   by &quot;{}&quot; grouping.
+</I>&gt;<i>     ? &lt;=&gt; {0,1}
+</I>&gt;<i>     + &lt;=&gt; {1,}
+</I>&gt;<i>     * &lt;=&gt; {0,}
+</I>&gt;<i> * grouping as in N(1X){1,2}  (&quot;one or two sequences of 1X&quot;)
+</I>&gt;<i> * capturing
+</I>&gt;<i>   with () grouped matches are stored in subsequent numbered global
+</I>&gt;<i>   variables, starting with $1, $2 and so on.
+</I>&gt;<i> * alternation as in (01|0|99) (&quot;01 or 0 or 99&quot;)
+</I>
+
+-- 
+Reini Urban - Entwicklung - <A HREF="http://inode.at">http://inode.at</A>
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: testmatch.c
+Type: text/x-c-code
+Size: 12581 bytes
+Desc: not available
+Url : <A HREF="http://lists.digium.com/pipermail/asterisk-dev/attachments/20030630/bcdd782f/testmatch.bin">http://lists.digium.com/pipermail/asterisk-dev/attachments/20030630/bcdd782f/testmatch.bin</A>
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000868.html">[Asterisk-Dev] better pattern matcher
+</A></li>
+	<LI>Next message: <A HREF="000825.html">[Asterisk-Dev] better pattern matcher
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1042">[ date ]</a>
+              <a href="thread.html#1042">[ thread ]</a>
+              <a href="subject.html#1042">[ subject ]</a>
+              <a href="author.html#1042">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://lists.digium.com/mailman/listinfo/asterisk-dev">More information about the asterisk-dev
+mailing list</a><br>
+</body></html>

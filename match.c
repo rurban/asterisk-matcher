@@ -34,7 +34,7 @@ char patmatch_group[80] = "";
 /* derived from code by Steffen Offermann 1991 (public domain)
    http://www.cs.umu.se/~isak/Snippets/xstrcmp.c
 */
-int ast_extension_patmatch(const char *pattern, const char *data) 
+int ast_extension_patmatch(const char *pattern, char *data) 
 {
     int i,border=0;
     char *where;
@@ -107,7 +107,10 @@ int ast_extension_patmatch(const char *pattern, const char *data)
 			tmp[border-cpos+1] = '\0';
 			to = atoi(tmp);
 		    } else { /* {f,} */
-			to = strlen(data);
+			to = strlen(data); /* may fail if after the group are more pattern chars */
+			if (*(pattern+border+1)) {
+			    to = to - strlen(pattern+border+1) + 1;
+			}
 		    }
 		} else {     /* {f} */
 		    if (from == 0) {
@@ -117,46 +120,60 @@ int ast_extension_patmatch(const char *pattern, const char *data)
 		    to = from;
 		}
 		if (from < 0 || to <= 0 || to < from) {
-		    ast_log(LOG_WARNING, "Invalid %s pattern quantifier\n", pattern);
+		    ast_log(LOG_WARNING, "Invalid pattern quantifier %s\n", pattern);
 		    return 0;
 		}
 
 		if (*group) { 	/* check for repeated pattern{n,m} in previous group */
-		    ast_log(LOG_DEBUG, ">>> check for repeated pattern{%d,%d} in previous group '%s'\n", from, to, group);
+		    int i;
+		    for (i=0; i< strlen(group); i++) {
+			data--;
+		    }
+		    ast_log(LOG_DEBUG, ">>> check for repeated pattern{%d,%d} of group '%s' in data '%s'\n", from, to, group, data);
 		    strcat(group,".");
 		} else {
 		    ast_log(LOG_DEBUG, ">>> check for repeated pattern{%d,%d} in previous character '%c'\n", from, to, prev);
+		    data--;
 		    group[0] = prev;
 		    group[1] = '.';
 		    group[2] = '\0';
 		}
-		for (i=1; i<=to; i++) {
-		    ast_log(LOG_DEBUG, "  >>>> round %d\n", i);
-		    if (ast_extension_patmatch(group, data++) && (i >= from)) break;
-		    if (!*data) { 
-			i = to+1; 
-			break; 
-		    }
+		*tmp = prev;
+		for (i=to; i>=from; i--) {
+		    if (ast_extension_patmatch_repeated(group,data,i)) break;
 		}
-		if (i<=to || !from && prev == ')') { /* found and grouping => capture */
+		prev = *tmp;
+		if (i >= from || !from) { /* if found */
+		    ast_log(LOG_DEBUG, " >>>> found '%s' in data '%s' after %d runs\n", group, data, i);
 		    char name[16];
+		    data = data + (i * (strlen(group)- 1)) - 1;
 		    int l = strlen(groupdata) - strlen(data);
-		    groupdata[l-1] = '\0';
-		    *(group+strlen(group)-1) = '\0';
-		    ast_log(LOG_DEBUG, "  >>>>> end of group '%s', data: %s\n", group, groupdata);
-		    /* capture the found data in variables $1, $2, ... */
-		    sprintf(name,"%d",++groupcounter);
+		    /* data = data-i+from-1; */		/* possible failure here! */
+		    if (prev == ')') {			/* grouping => capture */
+			*(group+strlen(group)-1) = '\0';
+			groupdata[l+1] = '\0';
+			ast_log(LOG_DEBUG, "  >>>>> end of group '%s', data: %s\n", group, groupdata);
+			/* capture the found data in variables $1, $2, ... */
+			sprintf(name,"%d",++groupcounter);
 #ifdef AST_PBX_MAX_STACK
-		    pbx_builtin_setvar_helper(NULL,name,groupdata);
+			pbx_builtin_setvar_helper(NULL,name,groupdata);
 #endif
-		    ast_log(LOG_DEBUG, "  >>>>> global variable $%s set to '%s'\n", name, groupdata);
+			ast_log(LOG_DEBUG, "  >>>>> global variable $%s set to '%s'\n", name, groupdata);
+		    }
 		}
 		*group = '\0';
 		prev = '\0';
-		if (i<=to) {        /* found: continue */
+		if (i >= from) {        /* found: continue */
 		    ast_log(LOG_DEBUG, " >>>> found in round %d from %d\n", i, to);
-		    if (*data)
-			return ast_extension_patmatch(pattern+border+1, data+1);
+		    if (*data) {
+			if (*(pattern+border+1)) /* if the tail check fails, try the other rounds */
+			    if (ast_extension_patmatch(pattern+border+1, data+1))
+				return 1;
+			    else return (ast_extension_patmatch_repeated(group, data, i--) && 
+					 ast_extension_patmatch(pattern+border+1, data+i));
+			else
+			    return ast_extension_patmatch(pattern+border+1, data+1);
+		    }
 		    else 
 			return 1;
 		} else if (from == 0) { /* not found, but special case from=0: no match needed */
@@ -172,6 +189,7 @@ int ast_extension_patmatch(const char *pattern, const char *data)
 	  /* unreachable code */
 	    
 	case '(': /* grouping */
+	    prev = *pattern;
 	    if (*group) {
 		ast_log(LOG_WARNING, "Unexpected subgroup ( in pattern %s\n", pattern);
 		return 0;
@@ -187,10 +205,35 @@ int ast_extension_patmatch(const char *pattern, const char *data)
 	    group[border-1] = '\0';
 	    strcpy(groupdata,data);
 	    ast_log(LOG_DEBUG, ">>> group '%s' stored, data: '%s'\n", group, groupdata);
-	    return ast_extension_patmatch(pattern+1, data);
+	    if (strchr(pattern,'|')) { /* alternations */
+		char *s, *scopy, *sep, *sepcopy;
+		s = scopy = (char *) malloc(strlen(pattern));
+		sepcopy   = (char *) malloc(strlen(pattern));
+		strcpy(s,group);
+		while (sep = strsep(&s,"|")) {
+		    strcpy(sepcopy,sep);
+		    strcat(sepcopy,pattern+border+1);
+		    ast_log(LOG_DEBUG, "  >>>> alternative '%s' =~ /%s/\n", sepcopy, data);
+		    if (ast_extension_patmatch(sepcopy, data)) break;
+		    if (!*data) { 
+			sep = NULL; break; 
+		    }
+		}
+		free(scopy);
+		if (sep) { /* found */
+		    free(sepcopy);
+		    return 1;
+		} else {
+		    free(sepcopy);
+		    return 0;
+		}
+	    } else {
+		return ast_extension_patmatch(pattern+1, data);
+	    }
 
 	case ')': /* group end */
-	    if (!group) {
+	    prev = *pattern;
+	    if (!*group) {
 		ast_log(LOG_WARNING, "Unexpected ) in pattern %s\n", pattern);
 		return 0;
 	    } else {
@@ -203,7 +246,7 @@ int ast_extension_patmatch(const char *pattern, const char *data)
 		    /* capture the found data in variables $1, $2, ... */
 		    sprintf(name,"%d",++groupcounter);
 #ifdef AST_PBX_MAX_STACK
-		    pbx_builtin_setvar_helper(NULL,name,group);
+		    pbx_builtin_setvar_helper(NULL,name,groupdata);
 #endif
 		    ast_log(LOG_DEBUG, ">>> global variable $%s set to '%s'\n", name, groupdata);
 		    *group = '\0';
@@ -216,14 +259,26 @@ int ast_extension_patmatch(const char *pattern, const char *data)
 		ast_log(LOG_WARNING, "Need group for | in %s\n", pattern);
 		return 0;
 	    }
-	    if (! (where=strchr(pattern,')'))) { 
-		ast_log(LOG_DEBUG, ">>> missing group in %s\n", pattern);
-		return 0;
+#if 0
+	    {
+		char *s, *sep;
+		s = strdup(group);
+		while (sep = strsep(&s,"|")) {
+		    ast_log(LOG_DEBUG, "  >>>> alternative %d\n", sep);
+		    if (ast_extension_patmatch(sep, data)) break;
+		    if (!*data) { 
+			*sep = '\0'; break; 
+		    }
+		}
+		if (*sep) { /* found */
+		    free(s);
+		    return ast_extension_patmatch(pattern+1, data+1);
+		} else {
+		    free(s);
+		    return 0;
+		}
 	    }
-	    border=(int)(where-pattern);
-	    /* todo */
-	    ast_log(LOG_DEBUG, ">>> ignoring rest of %s\n", pattern);
-	    return ast_extension_patmatch(pattern+border+1, data);
+#endif
 
 	case '[': /* Character ranges: [0-9a-zA-Z] */
 	    prev = *pattern;
@@ -274,6 +329,21 @@ int ast_extension_patmatch(const char *pattern, const char *data)
     return 0;
 }
 
+/* try exactly num repetitions, from high to from */
+int ast_extension_patmatch_repeated(const char *pattern, char *data, const int num) 
+{
+    int i;
+    ast_log(LOG_DEBUG, "  >>> try %d repetitions of '%s' in data '%s'\n", num, pattern, data);
+    if (num <= 0) return 0;
+    for (i=1; i<=num; i++) {
+	ast_log(LOG_DEBUG, "  >>>> round %d with data %s\n", i, data);
+	if (!ast_extension_patmatch(pattern, data)) return 0;
+	data = data + strlen(pattern) - 1;
+    }
+    return 1;
+}
+
+
 int ast_extension_match(char *pattern, char *data)
 {
 	int match;
@@ -321,6 +391,7 @@ int main (int argc, char *argv[]) {
     testmatch("_0N.",data1,1);
     /* not terminating . */
     testmatch("_0N.0",data1,0);
+#if 1
     testmatch("_0N. 8500",data1,0);
     testmatch("_0N. 8500",data2,1);
     testmatch("_0[2-9]. 8500",data2,1);
@@ -333,7 +404,10 @@ int main (int argc, char *argv[]) {
     testmatch("_[^x]o.","voicemail",1);
     testmatch("_[^v]o.","voicemail",0);
     testmatch("_[^a-z]o.","voicemail",0);
+#endif
     /* quantifiers */
+    testmatch("_0316890{2}N","0316890002",0);
+    testmatch("_0316890{3}N","0316890002",1);
     testmatch("_0316890{1,}N","0316890002",1);
     testmatch("_0316890{1,3}N","0316890002",1);
     testmatch("_0316890{4,5}N","0316890002",0);
@@ -343,10 +417,17 @@ int main (int argc, char *argv[]) {
     testmatch("_031689(X){1,3}N","0316890002",1);
     testmatch("_031689(X){4,3}N","0316890002",0);
     testmatch("_031689(X){3}N","0316890002",1);
+    testmatch("_031689(X){4}","0316890002",1);
+    testmatch("_031689(X){5}","0316890002",0);
+    testmatch("_031689(0){3}N","0316890002",1);
     testmatch("_031689(X){4}N","0316890002",0);
+    testmatch("_031689(X){4}N","03168900021",0);
+    testmatch("_031689(X){4}Z","03168900021",1);
+    testmatch("_031689(XX){2}Z","03168900021",1);
     /* alternation */
-    /* the second parts are not yet supported */
-    testmatch("_(031N|0)N.","0316890002",1);
     testmatch("_(032|02)N.","0316890002",0);
+#if 1
+    testmatch("_(031N|0)N.","0316890002",1); /* not yet supported */
+#endif
 }
 
