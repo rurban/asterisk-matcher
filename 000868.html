@@ -1,0 +1,94 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Asterisk-Dev] better pattern matcher
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:asterisk-dev%40lists.digium.com?Subject=%5BAsterisk-Dev%5D%20better%20pattern%20matcher&In-Reply-To=3EE087CA.3020008%40inode.at">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000863.html">
+   <LINK REL="Next"  HREF="001042.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Asterisk-Dev] better pattern matcher</H1>
+    <B>Reini Urban</B> 
+    <A HREF="mailto:asterisk-dev%40lists.digium.com?Subject=%5BAsterisk-Dev%5D%20better%20pattern%20matcher&In-Reply-To=3EE087CA.3020008%40inode.at"
+       TITLE="[Asterisk-Dev] better pattern matcher">r.urban at inode.at
+       </A><BR>
+    <I>Thu Jun 12 05:11:12 MST 2003</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000863.html">[Asterisk-Dev] better pattern matcher
+</A></li>
+        <LI>Next message: <A HREF="001042.html">[Asterisk-Dev] better pattern matcher
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#868">[ date ]</a>
+              <a href="thread.html#868">[ thread ]</a>
+              <a href="subject.html#868">[ subject ]</a>
+              <a href="author.html#868">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Attached is a matcher which does almost all I need so far.
+Again I have long weekend, alternations will have to wait until next monday.
+
+old:
+* a regex must start with &quot;_&quot;
+* regex patterns are case-insensitive except characters inside []
+* &quot;.&quot; matches zero or more characters (as in * in glob)
+* character ranges as in [0-9a-zA-Z]
+* X,Z,N match 0-9,1-9,2-9 resp.
+
+new:
+* &quot;?&quot; matches any character
+* negation as in [^0] (&quot;any char but 0&quot;)
+               or [^a-z]
+* explicit quantifiers as in X{2,4} (&quot;from 2 to 4 digits&quot;),
+                           or X{2,}  (&quot;at least 2 digits&quot;),
+                           or X{2}   (&quot;exactly 2 digits&quot;),
+* regex-style quantifiers like ?, + and * are supported
+   by &quot;{}&quot; grouping.
+     ? &lt;=&gt; {0,1}
+     + &lt;=&gt; {1,}
+     * &lt;=&gt; {0,}
+* grouping as in N(1X){1,2}  (&quot;one or two sequences of 1X&quot;)
+* capturing
+   with () grouped matches are stored in subsequent numbered global
+   variables, starting with $1, $2 and so on.
+* alternation as in (01|0|99) (&quot;01 or 0 or 99&quot;)
+   This is not yet supported, the subsequent alternatives are not
+   checked yet.
+
+-- 
+Reini Urban - Entwicklung - <A HREF="http://inode.at">http://inode.at</A>
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: testmatch.c
+Type: text/x-c-code
+Size: 10239 bytes
+Desc: not available
+Url : <A HREF="http://lists.digium.com/pipermail/asterisk-dev/attachments/20030612/83297ebd/testmatch.bin">http://lists.digium.com/pipermail/asterisk-dev/attachments/20030612/83297ebd/testmatch.bin</A>
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000863.html">[Asterisk-Dev] better pattern matcher
+</A></li>
+	<LI>Next message: <A HREF="001042.html">[Asterisk-Dev] better pattern matcher
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#868">[ date ]</a>
+              <a href="thread.html#868">[ thread ]</a>
+              <a href="subject.html#868">[ subject ]</a>
+              <a href="author.html#868">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://lists.digium.com/mailman/listinfo/asterisk-dev">More information about the asterisk-dev
+mailing list</a><br>
+</body></html>
