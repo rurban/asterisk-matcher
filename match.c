@@ -18,8 +18,9 @@
 #define LOG_WARNING 3
 #define LOG_DEBUG   0
 
-extern void ast_log(int level, const char *fmt, ...) {
+void ast_log(int level, const char *fmt, ...) {
     va_list ap;
+    (void)level;
 
     va_start(ap, fmt);
     vfprintf(stdout, fmt, ap);
@@ -31,12 +32,14 @@ extern void ast_log(int level, const char *fmt, ...) {
 int  patmatch_groupcounter = 0;
 char patmatch_group[80] = "";
 
+static int ast_extension_patmatch_repeated(const char *pattern, char *data, const int num);
+
 /* derived from code by Steffen Offermann 1991 (public domain)
    http://www.cs.umu.se/~isak/Snippets/xstrcmp.c
 */
 int ast_extension_patmatch(const char *pattern, char *data) 
 {
-    int i,border=0;
+    int i, border=0;
     char *where;
     static char prev = '\0';
     static char groupdata[80] = "";
@@ -88,7 +91,7 @@ int ast_extension_patmatch(const char *pattern, char *data)
 		border=(int)(where-pattern);
 		comma = strchr(pattern,',');
 	    }
-	    if (!where || border > strlen(pattern)) {
+	    if (!where || border > (int)strlen(pattern)) {
 		ast_log(LOG_WARNING, "Wrong %s pattern usage\n", pattern);
 		return 0;
 	    } else {
@@ -126,7 +129,7 @@ int ast_extension_patmatch(const char *pattern, char *data)
 
 		if (*group) { 	/* check for repeated pattern{n,m} in previous group */
 		    int i;
-		    for (i=0; i< strlen(group); i++) {
+		    for (i=0; i< (int)strlen(group); i++) {
 			data--;
 		    }
 		    ast_log(LOG_DEBUG, ">>> check for repeated pattern{%d,%d} of group '%s' in data '%s'\n", from, to, group, data);
@@ -197,7 +200,7 @@ int ast_extension_patmatch(const char *pattern, char *data)
 	    where=strchr(pattern,')');
 	    if (where)
 		border=(int)(where-pattern);
-	    if (!where || border > strlen(pattern)) {
+	    if (!where || border > (int)strlen(pattern)) {
 		ast_log(LOG_WARNING, "Wrong (%s) pattern usage\n", pattern);
 		return 0;
 	    }
@@ -210,7 +213,7 @@ int ast_extension_patmatch(const char *pattern, char *data)
 		s = scopy = (char *) malloc(strlen(pattern));
 		sepcopy   = (char *) malloc(strlen(pattern));
 		strcpy(s,group);
-		while (sep = strsep(&s,"|")) {
+		while ((sep = strsep(&s,"|"))) {
 		    strcpy(sepcopy,sep);
 		    strcat(sepcopy,pattern+border+1);
 		    ast_log(LOG_DEBUG, "  >>>> alternative '%s' =~ /%s/\n", sepcopy, data);
@@ -239,7 +242,7 @@ int ast_extension_patmatch(const char *pattern, char *data)
 	    } else {
 		if (pattern[1] != '{') { /* capture without quantifiers */
 		    char name[16];
-		    int l = strlen(groupdata) - strlen(data);
+		    int l = (int)(strlen(groupdata) - strlen(data));
 		    groupdata[l-1] = '\0';
 		    *(group+strlen(group)-1) = '\0';
 		    ast_log(LOG_DEBUG, ">>> end of group '%s', data: %s\n", group, groupdata);
@@ -279,6 +282,7 @@ int ast_extension_patmatch(const char *pattern, char *data)
 		}
 	    }
 #endif
+            break;
 
 	case '[': /* Character ranges: [0-9a-zA-Z] */
 	    prev = *pattern;
@@ -286,7 +290,7 @@ int ast_extension_patmatch(const char *pattern, char *data)
 	    where=strchr(pattern,']');
 	    if (where)
 		border=(int)(where-pattern);
-	    if (!where || border > strlen(pattern)) {
+	    if (!where || border > (int)strlen(pattern)) {
 		ast_log(LOG_WARNING, "Wrong [%s] pattern usage\n", pattern);
 		return 0;
 	    }
@@ -330,7 +334,7 @@ int ast_extension_patmatch(const char *pattern, char *data)
 }
 
 /* try exactly num repetitions, from high to from */
-int ast_extension_patmatch_repeated(const char *pattern, char *data, const int num) 
+static int ast_extension_patmatch_repeated(const char *pattern, char *data, const int num) 
 {
     int i;
     ast_log(LOG_DEBUG, "  >>> try %d repetitions of '%s' in data '%s'\n", num, pattern, data);
@@ -381,7 +385,7 @@ int testmatch(char *pattern, char *data, int should)
     return match;
 }
 
-int main (int argc, char *argv[]) {
+int main () {
     char data1[] = "0316890002";
     char data2[] = "03168900028500";
 
