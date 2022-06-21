@@ -1,0 +1,32 @@
+2003 I added a dynamic regular expression matcher to asterisk,
+which has a weird synatx, but otherwise the matcher looked fine.
+
+* a regex must start with "_"
+* regex patterns are case-insensitive except characters inside []
+* "." matches zero or more characters (as in * in glob)
+* character ranges as in [0-9a-zA-Z]
+* X,Z,N match 0-9,1-9,2-9 resp.    
+* "?" matches any character
+* negation as in [^0] ("any char but 0")
+               or [^a-z]
+* explicit quantifiers as in X{2,4} ("from 2 to 4 digits"),
+                           or X{2,}  ("at least 2 digits"),
+                           or X{2}   ("exactly 2 digits"),
+* regex-style quantifiers like ?, + and * are supported
+   by "{}" grouping.
+     ? <=> {0,1}
+     + <=> {1,}
+     * <=> {0,}
+* grouping as in N(1X){1,2}  ("one or two sequences of 1X")
+* capturing
+   with () grouped matches are stored in subsequent numbered global
+   variables, starting with $1, $2 and so on.
+* alternation as in (01|0|99) ("01 or 0 or 99")
+   This is not yet supported, the subsequent alternatives are not
+   checked yet.
+
+Copyright 2003 Reini Urban, MIT Licensed.
+
+In the end it was removed from CVS before a release without me
+noticing because the variable capturing was not thread-safe. Would
+have been trivial to fix.
